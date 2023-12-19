@@ -6,10 +6,30 @@ from flask import (
     redirect,
     url_for,
 )
+
+import hashlib
 from pymongo import MongoClient
+from datetime import datetime
+from bson import ObjectId
+from datetime import datetime, timedelta
+import jwt
 
-SECRET_KEY = 'FOOGRE'
+import os
+from os.path import join, dirname
+from dotenv import load_dotenv
 
+
+SECRET_KEY = 'OKAKSE'
+TOKEN_KEY = 'mytoken'
+
+dotenv_path = join(dirname(__file__), '.env')
+load_dotenv(dotenv_path)
+
+MONGODB_URI = os.environ.get("MONGODB_URI")
+DB_NAME =  os.environ.get("DB_NAME")
+
+client = MongoClient(MONGODB_URI)
+db = client[DB_NAME]
 client = MongoClient("mongodb+srv://Test:yoi22@cluster0.poxbckg.mongodb.net/?retryWrites=true&w=majority")
 db = client.FOOGRE
 
@@ -32,15 +52,20 @@ def signup():
 def sign_up():
     username = request.form.get("username")
     password = request.form.get("password")
+    print(username)
+    print(password)
+    password_hash = hashlib.sha256(password. encode('utf-8')).hexdigest()
+    
     doc = {
         "username": username,
-        "password": password
+        "password": password_hash,
         
     }
     db.user.insert_one(doc)
     return jsonify({"result": "success"})
 
-@app.route("/signin")
+
+@app.route("/signin", methods=["GET"])
 def signin():
     return render_template("login.html")
 
@@ -49,13 +74,29 @@ def sign_in():
     username = request.form["username"]
     password = request.form["password"]
     print(username)
+    pw_hash = hashlib.sha256(password. encode('utf-8')).hexdigest()
     print(password)
     result = db.user.find_one(
         {
             "username": username,
-            "password": password,
+            "password": pw_hash,
         }
     )
+    if result:
+        payload = {
+            "id": username,
+            "exp": datetime.utcnow() + timedelta(seconds=60 * 60 * 24),
+        }
+        token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+        return jsonify(
+            {
+                "result": "success",
+                "token": token,
+            }
+        )
+    else: return jsonify({"result": "success", "user_id": str(result.get("_id"))})
+   
     
     
 
